@@ -1,0 +1,27 @@
+//================================================================================
+//Calendar
+//================================================================================
+
+DummyDate:
+LOAD
+     Date('01/01/2016' + RowNo() -1) as [Date]
+AutoGenerate(1000)
+;
+
+Calendar:
+LOAD
+     Date(TempDate) as [Date],
+     Day(TempDate) as [Day],
+     Month(TempDate) as [Month],
+     Year(TempDate) as [Year],
+     MonthName(TempDate) as [MonthName],
+     WeekDay(TempDate) as [WeekDay]
+;
+LOAD
+     Date(startdate+IterNo()) as TempDate
+WHILE startdate+IterNo()<=enddate
+;
+LOAD
+     Min(FieldValue('Date',RecNo()))-1 as startdate,
+     Max(FieldValue('Date',RecNo())) as enddate
+AutoGenerate FieldValueCount('Date')
