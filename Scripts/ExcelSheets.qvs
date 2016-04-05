@@ -1,0 +1,54 @@
+SET vFilePath = 'C:\Qlik'; //local path
+SET vFileName = '*'; //filename * is wild
+
+
+//Empty table created so we can concatenate all tables
+TEMP:
+LOAD * INLINE [
+    File_Name
+    NA
+];
+
+//loop through all files that contain 'Shelflife' in the name
+FOR EACH file in FileList('$(vFilePath)\$(vFileName).xlsx');
+	//ignore any file containg '~' (files starting with ~ are temp files when a file is open and should not be read)
+	IF WildMatch('$(file)','*~*')=0 THEN 
+		//connect to each file
+		ODBC CONNECT TO [Excel Files;DBQ=$(file)];
+		//return details of each file such as the table_name (this is the excel sheet name)
+		tables: 
+		SQLtables; 
+		DISCONNECT;
+		
+		//loop through all rows in each table	
+		FOR i = 0 to NoOfRows('tables')-1
+			// remove quotes and $ from the sheet name
+			LET sheetName = purgeChar(purgeChar(peek('TABLE_NAME', i, 'tables'), chr(39)), chr(36)); //chr(39)=' chr(36)=$
+			//if the sheet contains '_xlnm#_FilterDatabase' this is a filtered version of the sheet and should be ignored
+			IF WildMatch('$(sheetName)','*_xlnm#_FilterDatabase')= 0 THEN
+				//concatenate to existing Table, some files contain more/less fields so we have to use * to load all field names
+				concatenate(TEMP)
+				Load DISTINCT 
+				    * , 
+					FileBaseName() as File,
+					FileDir() as Dir,
+					FileName() as File_Name,
+					'$(sheetName)' as Sheet_name
+				From 
+				[$(file)] 
+				(ooxml, embedded labels, header is 10 lines, table is [$(sheetName)]);	
+			ENDIF
+			
+		NEXT i
+	
+		DROP TABLE tables;
+	ENDIF
+NEXT
+
+//remove File_Name 'NA' created at the start
+NoConcatenate
+Table:
+LOAD * Resident TEMP WHERE File_Name <>'NA';
+DROP TABLE TEMP;
+
+STORE Table into Table.qvd (QVD);
