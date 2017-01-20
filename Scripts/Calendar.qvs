@@ -1,27 +1,40 @@
-//================================================================================
-//Calendar
-//================================================================================
+//=============================================================================================================
+// Date range to use, this could be from a fact table instead of an Inline table
+//=============================================================================================================
 
-DummyDate:
-LOAD
-     Date('01/01/2016' + RowNo() -1) as [Date]
-AutoGenerate(1000)
-;
+DateRangeTemp:
+LOAD * INLINE [
+DateRange
+01/01/2010
+30/11/2016
+];
 
-Calendar:
+//=============================================================================================================
+// Calendar table with date attributes as fields
+//=============================================================================================================
+
+//Field to use to generate Calendar:
+SET vDateRangeField = 'DateRange';
+
+Cal:
 LOAD
-     Date(TempDate) as [Date],
-     Day(TempDate) as [Day],
-     Month(TempDate) as [Month],
-     Year(TempDate) as [Year],
-     MonthName(TempDate) as [MonthName],
-     WeekDay(TempDate) as [WeekDay]
+	Date(TempDate) as Date,
+	Month(TempDate) as Month,
+	Dual(Left(Month(TempDate),1),Month(TempDate)) as MonthShort,
+	Num(Month(TempDate),'00') as MonthNo,
+	MonthName(TempDate) as MonthName,
+	Year(TempDate) as Year,
+	Num(Week(TempDate),'00') as Week,
+	Day(TempDate) as Day,
+	WeekDay(TempDate) as WeekDay,
+	Dual('Q' & Ceil(Month(TempDate)/3),Ceil(Month(TempDate)/3)) as Quarter,
+	DayNumberOfYear(TempDate) as DayofYear
 ;
 LOAD
-     Date(startdate+IterNo()) as TempDate
-WHILE startdate+IterNo()<=enddate
+	Date(MinDate + IterNo()) as TempDate
+WHILE MinDate + IterNo() <= MaxDate
 ;
 LOAD
-     Min(FieldValue('Date',RecNo()))-1 as startdate,
-     Max(FieldValue('Date',RecNo())) as enddate
-AutoGenerate FieldValueCount('Date')
+	Min(FieldValue('$(vDateRangeField)',RecNo()))-1 as MinDate,
+	Max(FieldValue('$(vDateRangeField)',RecNo())) as MaxDate
+AutoGenerate FieldValueCount('$(vDateRangeField)');
