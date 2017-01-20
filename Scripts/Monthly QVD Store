@@ -1,0 +1,33 @@
+```
+LET vToday = Today() ;
+LET vMonthEnd = Date( if(floor(MonthEnd(vToday)) = vToday, vToday,  floor(MonthEnd(addmonths(vToday,-1))) ) );
+LET vLoadMonths = 24;
+
+LET vLoadDateStart = Date(AddMonths(vMonthEnd,-vLoadMonths +1),'YYYYMM');
+LET vLoadDateEnd = Date(vMonthEnd,'YYYYMM');
+
+LoadDates:
+LOAD
+	Date(AddMonths($(#vMonthEnd), -IterNo() +1),'YYYYMM') as LoadDate
+AutoGenerate (1)
+WHILE IterNo() <= $(vLoadMonths);
+
+FOR EACH LoadDate in FieldValueList('LoadDate')
+
+	IF ISNULL(QvdCreateTime('QVD\FileName_$(LoadDate).QVD')) THEN
+	
+		TableName:
+		LOAD 
+			Field1,
+      Field2,
+      Field3
+		FROM
+		[SourceFolder\FileName_$(LoadDate).QVD]
+		(qvd);
+		
+		STORE TableName into [QVD\FileName_$(LoadDate).QVD];
+		DROP TABLE Segments;
+	
+	END IF
+	
+NEXT LoadDate
