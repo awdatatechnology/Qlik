@@ -1,0 +1,40 @@
+//=============================================================================================================
+// Date range to use, this could be from a fact table instead of an Inline table
+//=============================================================================================================
+
+DateRangeTemp:
+LOAD * INLINE [
+DateRange
+01/01/2010
+30/11/2016
+];
+
+//=============================================================================================================
+// Calendar table with date attributes as fields
+//=============================================================================================================
+
+//Field to use to generate Calendar:
+SET vDateRangeField = 'DateRange';
+
+Cal:
+LOAD
+	Date(TempDate) as Date,
+	Month(TempDate) as Month,
+	Dual(Left(Month(TempDate),1),Month(TempDate)) as MonthShort,
+	Num(Month(TempDate),'00') as MonthNo,
+	MonthName(TempDate) as MonthName,
+	Year(TempDate) as Year,
+	Num(Week(TempDate),'00') as Week,
+	Day(TempDate) as Day,
+	WeekDay(TempDate) as WeekDay,
+	Dual('Q' & Ceil(Month(TempDate)/3),Ceil(Month(TempDate)/3)) as Quarter,
+	DayNumberOfYear(TempDate) as DayofYear
+;
+LOAD
+	Date(MinDate + IterNo()) as TempDate
+WHILE MinDate + IterNo() <= MaxDate
+;
+LOAD
+	Min(FieldValue('$(vDateRangeField)',RecNo()))-1 as MinDate,
+	Max(FieldValue('$(vDateRangeField)',RecNo())) as MaxDate
+AutoGenerate FieldValueCount('$(vDateRangeField)');
