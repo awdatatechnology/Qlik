@@ -1,0 +1,61 @@
+//================================================================================ 
+// Split QVD into Monthly QVDs  
+//================================================================================ 
+
+//QVD Path 
+SET vQVDPath = 'C:\QlikView\'; 
+//Date Range 
+LET vStartMonth = '01/01/2014'; 
+LET vEndMonth = Today(); 
+ 
+//Load all months in date range 
+MonthRange: 
+LOAD 
+	AddMonths(Date('$(vStartMonth)'),IterNo()-1) as MonthStart 
+AutoGenerate (1) 
+WHILE AddMonths(Date('$(vStartMonth)'),IterNo()-1) <= Date('$(vEndMonth)'); 
+ 
+
+//Null table so it can be dropped first in loop without error 
+DateRange: 
+LOAD 
+	Date(Null()) as TRANSACTION_DT 
+AutoGenerate(1); 
+ 
+//loop through each month 
+FOR Each vMonth in FieldValueList('MonthStart') 
+	 
+	LET vFileName = Date('$(vMonth)','YYYY-MM'); 
+	LET vFileNotExists = IsNull(QvdCreateTime('$(vQVDPath)EDW_Fact_$(vFileName).qvd')); // if qvd exists then 0 else -1 
+	 
+	 
+	IF $(vFileNotExists) OR MonthEnd('$(vMonth)') > AddMonths(Today(),-1)  THEN //QVD does not exist or within x months 
+		
+		DROP TABLE DateRange; 
+		
+		//Load all dates in month 
+		DateRange: 
+		LOAD 
+			Date('$(vMonth)'+IterNo()-1) as DateField 
+			AutoGenerate (1) 
+		WHILE InMonth(Date('$(vMonth)'+IterNo()-1),Date('$(vMonth)'),0); 
+		
+		Fact_Table: 
+		LOAD  
+		* 
+		FROM 
+		[TableName.qvd] 
+		(qvd) 
+		WHERE EXISTS(DateField)  
+		;  
+		 		 
+		STORE Fact_Table INTO [$(vQVDPath)Fact_Table_$(vFileName).qvd]; 
+		DROP TABLE Fact_Table; 
+	END IF; 
+ 
+ 
+NEXT vMonth 
+ 
+ 
+DROP TABLES MonthRange, DateRange; 
+ 
