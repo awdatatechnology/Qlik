@@ -18,12 +18,17 @@ FOR EACH LoadDate in FieldValueList('LoadDate')
 	
 		TableName:
 		LOAD 
-			Field1,
-      Field2,
-      Field3
+			Field1 as NewField1,
+      			Field2 as NewField2,
+      			Field3 as NewField3,
+			Sum(Field4) as NewField4
 		FROM
 		[SourceFolder\FileName_$(LoadDate).QVD]
-		(qvd);
+		(qvd)
+		GROUP BY
+			Field1,
+			Field2,
+			Field3;
 		
 		STORE TableName into [QVD\FileName_$(LoadDate).QVD];
 		DROP TABLE Segments;
