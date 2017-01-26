@@ -1,0 +1,13 @@
+// Load some dummy fields just to assign formats
+TempFormatTable:
+LOAD
+ Date(0, 'DD/MM/YYYY') as OrderDate,
+ Date(0, 'DD/MM/YYYY') as ShipDate,
+ Num(0, '00000') as PostalCode,
+ Num(0, '#,##0.00') as OrderTotal
+AutoGenerate 0;
+
+Facts: // Load the QVD
+LOAD * FROM data1.qvd (qvd);
+
+DROP TABLE TempFormatTable;  // Drop temp table
