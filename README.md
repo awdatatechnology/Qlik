@@ -1,2 +1,2 @@
-# QlikView
-Useful scripts for QlikView
+# Qlik
+Useful scripts for Qlik
