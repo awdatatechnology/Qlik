@@ -1,3 +1,9 @@
+SET FirstWeekDay=0; 
+SET BrokenWeeks=0; 
+SET ReferenceDay=4; 
+SET FirstMonthOfYear=1; 
+SET CollationLocale='en-US';
+
 //=============================================================================================================
 // Date range to use, this could be from a fact table instead of an Inline table
 //=============================================================================================================
