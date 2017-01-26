@@ -9,7 +9,7 @@ LOAD * INLINE [
     NA
 ];
 
-//loop through all files that contain 'Shelflife' in the name
+//loop through files
 FOR EACH file in FileList('$(vFilePath)\$(vFileName).xlsx');
 	//ignore any file containg '~' (files starting with ~ are temp files when a file is open and should not be read)
 	IF WildMatch('$(file)','*~*')=0 THEN 
