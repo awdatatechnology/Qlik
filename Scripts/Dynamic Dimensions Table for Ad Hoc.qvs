@@ -1,0 +1,25 @@
+//================================================================================ 
+// Create dimensions table for all fields 
+//================================================================================ 
+
+// loop through all tables
+FOR vCountTable = 0 to NoOfTables()-1  
+
+	// store table name in variable
+	LET vTableName = TableName($(vCountTable));
+	  
+	// loop through fields in table
+	FOR vCountField = 1 to NoOfFields('$(vTableName)')
+	
+		// load each field name into a new row in the Dimensions table
+		Dimensions:
+		LOAD 
+			FieldName($(vCountField),'$(vTableName)') as %Dimension,
+			$(vCountField) as FieldNo,
+			'$(vTableName)' as TableName
+		AutoGenerate(1);
+		
+	NEXT vCountField
+
+
+NEXT vCountTable
