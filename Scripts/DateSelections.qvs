@@ -1,0 +1,483 @@
+//=============================================================================================================
+// Date range to use, this could be from a fact table instead of an Inline table
+//=============================================================================================================
+
+DateRangeTemp:
+LOAD * INLINE [
+DateRange
+01/01/2010
+30/11/2016
+];
+
+
+
+//Field to use to generate Calendar:
+SET vDateRangeField = 'DateRange';
+
+//=============================================================================================================
+// Calendar table with date attributes as fields
+//=============================================================================================================
+
+Cal:
+LOAD
+	Date(TempDate) as Date,
+	Month(TempDate) as Month,
+	Dual(Left(Month(TempDate),1),Month(TempDate)) as MonthShort,
+	Num(Month(TempDate),'00') as MonthNo,
+	MonthName(TempDate) as MonthName,
+	Year(TempDate) as Year,
+	Num(Week(TempDate),'00') as Week,
+	Day(TempDate) as Day,
+	WeekDay(TempDate) as WeekDay,
+	Dual('Q' & Ceil(Month(TempDate)/3),Ceil(Month(TempDate)/3)) as Quarter,
+	DayNumberOfYear(TempDate) as DayofYear
+;
+LOAD
+	Date(MinDate + IterNo()) as TempDate
+WHILE MinDate + IterNo() <= MaxDate
+;
+LOAD
+	Min(FieldValue('$(vDateRangeField)',RecNo()))-1 as MinDate,
+	Max(FieldValue('$(vDateRangeField)',RecNo())) as MaxDate
+AutoGenerate FieldValueCount('$(vDateRangeField)');
+
+//=============================================================================================================
+// Calendar prefixed with table name, unqualify the key field(s)
+//=============================================================================================================
+
+// Date to be used as refrence for all predefined date ranges
+LET vDateReference = Date(FieldValue('Date',NoOfRows('Cal')));
+
+LET vCalendarPrefix = 'Master'; // all fields to be prefixed e.g. Prefix.DateField
+LET vFactTableKeyField = '%Date'; // to associcate to your fact table, must not be same as a field in Cal
+LET vCalendarKeyField = '%MasterDate'; // must not be same as a field in Cal
+LET vCalendarKeyField2 = '%MasterMonthName'; // Used for AsOfMonthly table, must not be same as a field in Cal
+
+
+QUALIFY *; UNQUALIFY [$(vFactTableKeyField)], [$(vCalendarKeyField)], [$(vCalendarKeyField2)];
+[$(vCalendarPrefix)]:
+LOAD 
+	Date as [$(vFactTableKeyField)],
+	Date as [$(vCalendarKeyField)],
+	MonthName as [$(vCalendarKeyField2)],
+	*
+Resident Cal;
+UNQUALIFY *;
+
+RENAME Table [$(vCalendarPrefix)] TO [$(vCalendarPrefix)_Calendar];
+
+//=============================================================================================================
+// Predefined Date Selections
+//=============================================================================================================
+LET vTableName = 'DateSelections';
+
+//Values to display for the date range
+LET vRange1 = 'Current'; //Current, This Year, TY, etc...
+LET vRange2 = 'Prior'; //Prior, Last Year, LY, etc...
+
+// Year to Date
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Year to date' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE InYearToDate(Date,$(#vDateReference),0);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Year to date' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE InYearToDate(AddYears(Date,1),$(#vDateReference),0);
+
+// Month to date
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Month to date' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE InMonthToDate(Date,$(#vDateReference),0);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Month to date' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE InMonthToDate(AddYears(Date,1),$(#vDateReference),0);
+
+// Last Full Month
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Last Full Month' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE InMonth(Date,AddMonths($(#vDateReference),-1),0);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Last Full Month' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE InMonth(AddYears(Date,1),AddMonths($(#vDateReference),-1),0);
+
+// Last 3 Months
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Last 3 Months' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE Date >= AddMonths(MonthStart($(#vDateReference)),-2) AND Date <= $(#vDateReference);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Last 3 Months' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE AddYears(Date,1) >= AddMonths(MonthStart($(#vDateReference)),-2) AND AddYears(Date,1) <= $(#vDateReference);
+
+
+// Rolling 30 days
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Rolling 30 days' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE Date > $(#vDateReference) -30 AND Date <= $(#vDateReference);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Rolling 30 days' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE AddYears(Date,1) > $(#vDateReference) -30 AND AddYears(Date,1) <= $(#vDateReference); 
+
+// Rolling 12 months
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Rolling 12 months' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE Date > AddYears($(#vDateReference),-1) AND Date <= $(#vDateReference);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Rolling 12 months' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE AddYears(Date,1) > AddYears($(#vDateReference),-1) AND AddYears(Date,1) <= $(#vDateReference);
+
+// Rolling 12 months (from last full month)
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Rolling 12 months (from last full month)' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE Date > AddYears(Floor(MonthEnd(AddMonths($(#vDateReference),-1))),-1) AND Date <= Floor(MonthEnd(AddMonths($(#vDateReference),-1)));
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Rolling 12 months (from last full month)' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE AddYears(Date,1) > AddYears(Floor(MonthEnd(AddMonths($(#vDateReference),-1))),-1) AND AddYears(Date,1) <= Floor(MonthEnd(AddMonths($(#vDateReference),-1)));
+
+
+// Rolling 12 months (including current month)
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Rolling 12 months (including current month)' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE MonthStart(Date) > AddYears($(#vDateReference),-1) AND MonthStart(Date) <= $(#vDateReference);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Rolling 12 months (including current month)' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE MonthStart(AddYears(Date,1)) > AddYears($(#vDateReference),-1) AND MonthStart(AddYears(Date,1)) <= $(#vDateReference);
+
+// Today same date
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Today same date' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE Date = $(#vDateReference);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Today same date' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE AddYears(Date,1) = $(#vDateReference);
+
+// Today same day
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Today same weekday' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE Date = $(#vDateReference);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Today same weekday' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE Date + 364 = $(#vDateReference) ;
+
+// Today same day of week
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Today same week' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE Date = $(#vDateReference);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Today same week' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE WeekYear(Date)&'-'&Week(Date)&'-'& WeekDay(Date) = WeekYear($(#vDateReference))-1&'-'&If(Week($(#vDateReference))=53,52,Week($(#vDateReference)))&'-'& WeekDay($(#vDateReference)) ;
+
+// Yesterday same date
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Yesterday same date' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE Date +1 = $(#vDateReference);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Yesterday same date' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE AddYears(Date +1,1) = $(#vDateReference);
+
+// Yesterday same day
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Yesterday same weekday' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE Date +1 = $(#vDateReference);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Yesterday same weekday' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE Date +1 + 364 = $(#vDateReference) ;
+
+// Yesterday same day of week
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Yesterday same week' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE Date +1 = $(#vDateReference);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Yesterday same week' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE WeekYear(Date +1)&'-'&Week(Date +1)&'-'& WeekDay(Date +1) = WeekYear($(#vDateReference))-1&'-'&If(Week($(#vDateReference))=53,52,Week($(#vDateReference)))&'-'& WeekDay($(#vDateReference)) ;
+
+
+// Full Year
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Full Year' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE InYear(Date,$(#vDateReference),0);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Full Year' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE InYear(AddYears(Date,1),$(#vDateReference),0);
+
+// Last Week
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Last Week' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal
+WHERE InWeek(Date,$(#vDateReference),-1,0);
+
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Last Week' as DateSelection,
+	'$(vRange2)' as DateRange
+Resident Cal
+//WHERE InWeek(AddYears(Date,1),$(#vDateReference),-1,0); //same dates not the same week last year
+WHERE InWeek(Date,AddYears($(#vDateReference),-1),-1,0); //same week last year
+
+
+// Custom - does not contain a Prior DateRange
+[$(vTableName)]:
+LOAD 
+	Date as [$(vCalendarKeyField)],
+	'Custom' as DateSelection,
+	'$(vRange1)' as DateRange
+Resident Cal;
+
+
+
+//=============================================================================================================
+// Showing Current and Prior range on the same date as the Current range 
+//=============================================================================================================
+LET vTableName = 'SameDate';
+
+[$(vTableName)_Temp]:
+LOAD
+	Date as [$(vCalendarKeyField)],
+	Date,
+	'$(vRange1)' as DateRange
+Resident Cal;
+
+[$(vTableName)_Temp]:
+LOAD
+	Date as [$(vCalendarKeyField)],
+	AddYears(Date,1) as Date,
+	'$(vRange2)' as DateRange
+Resident Cal
+WHERE AddYears(Date,1) <= $(#vDateReference)
+;
+
+LEFT JOIN([$(vTableName)_Temp])
+LOAD * Resident Cal;
+
+QUALIFY *; UNQUALIFY [$(vCalendarKeyField)];
+[$(vTableName)]:
+LOAD * Resident [$(vTableName)_Temp];
+UNQUALIFY *;
+
+DROP TABLE [$(vTableName)_Temp];
+
+
+////=============================================================================================================
+//// As Of Accumulation
+////=============================================================================================================
+//LET vTableName = 'AsOfDaily';
+//
+//// Rolling 30 days Accumulation
+//[$(vTableName)_Temp]:
+//LOAD 
+//	Date(Date +1 - IterNo() ) as [$(vCalendarKeyField)],
+//	Date as Date,
+//	'Rolling 30 days' as DateSelection
+//Resident Cal
+//While IterNo() <= 30;
+//
+//// Year to date Accumulation
+//[$(vTableName)_Temp]:
+//LOAD 
+//	Date(Date +1 - IterNo() ) as [$(vCalendarKeyField)],
+//	Date as Date,
+//	'Year to date' as DateSelection
+//Resident Cal
+//While Date(Date +1 - IterNo() ) >= YearStart(Date);
+//
+//// Rolling 12 months Accumulation
+//[$(vTableName)_Temp]:
+//LOAD 
+//	Date(Date +1 - IterNo() ) as [$(vCalendarKeyField)],
+//	Date as Date,
+//	'Rolling 12 months' as DateSelection
+//Resident Cal
+//While Date(Date +1 - IterNo() ) > AddYears(Date,-1);
+//
+//
+////LEFT JOIN([$(vTableName)_Temp])
+////LOAD * Resident Cal;
+//
+//QUALIFY *; UNQUALIFY [$(vCalendarKeyField)];
+//[$(vTableName)]:
+//LOAD * Resident [$(vTableName)_Temp];
+//UNQUALIFY *;
+//
+//DROP TABLE [$(vTableName)_Temp];
+
+
+//=============================================================================================================
+// As Of Accumulation
+//=============================================================================================================
+LET vTableName = 'AsOfMonthly';
+
+// Rolling 12 months Accumulation
+[$(vTableName)_Temp]:
+LOAD DISTINCT
+	MonthName(AddMonths(MonthName,1 - IterNo()) ) as [$(vCalendarKeyField2)],
+	MonthName,
+	Month,
+	'Rolling 12 months' as DateSelection
+Resident Cal
+While MonthName(AddMonths(MonthName,1 - IterNo()) ) > AddYears(MonthName,-1);
+
+
+//LEFT JOIN([$(vTableName)_Temp])
+//LOAD * Resident Cal;
+
+QUALIFY *; UNQUALIFY [$(vCalendarKeyField2)];
+[$(vTableName)]:
+LOAD * Resident [$(vTableName)_Temp];
+UNQUALIFY *;
+
+DROP TABLE [$(vTableName)_Temp];
+
+
+//=============================================================================================================
+// Cleanup
+//=============================================================================================================
+
+DROP TABLE DateRangeTemp;
+DROP TABLE Cal;
+
+LET vDateRangeField = NULL();
+LET vCalendarPrefix = NULL();
+LET vFactTableKeyField = NULL();
+LET vCalendarKeyField = NULL();
+LET vCalendarKeyField2 = NULL();
+LET vDateReference = NULL();
+LET vTableName = NULL();
+LET vRange1 = NULL();
+LET vRange2 = NULL();
