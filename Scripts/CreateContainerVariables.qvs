@@ -1,0 +1,59 @@
+SUB CreateContainerVariables(Container) // left blank refers to current container
+
+// Current Path
+LET vDocumentPath = DocumentPath();
+LET vCurrentPath = Left('$(vDocumentPath)',Index('$(vDocumentPath)','\',-1)-1);
+
+Folders:
+LOAD * INLINE [
+    Folder, Parent, Description
+    Apps, , Front end apps
+    Models, , Data models
+    Loaders, , QVD generators
+    QVD Files, , QVD files
+    Raw, QVD Files, Raw QVDS
+    Transformed, QVD Files, Transformed QVDs
+    Data Files, , Data files
+    Scripts, , scripts
+];
+
+FOR Each vFolder in FieldValueList('Folder') 
+
+
+LET vFolderName = If(Len('$(Container)')>0,'$(Container)\') &If(Len('$(Parent)')>0,'$(Parent)\') & '$(vFolder)';
+LET vVarName = Replace('$(vFolder)$(Parent)',' ','');
+
+
+LET i = 1;
+DO WHILE i < 10 // stop at 10 loops
+	LET vCurrentPath = Left('$(vCurrentPath)',Index('$(vCurrentPath)','\',-1)-1);
+	LET vFolderPath = '$(vCurrentPath)\$(vFolderName)';
+	LET vFolderExists = IF(IsNull(FileSize('$(vFolderPath)')),0,1);
+	LET i = i+1;
+EXIT DO WHEN vFolderExists = 1 // exit when folder exists
+LOOP
+
+IF vFolderExists = 1 THEN
+	LET v$(Container)$(vVarName)Path = '$(vFolderPath)';
+ELSE 
+	LET v$(Container)$(vVarName)Path = 'Could not find path';
+END IF
+
+LET vFolderName =;
+LET vVarName =;
+LET i =;
+LET vFolderPath =;
+LET vFolderExists =; 
+LET vFolder =;
+
+
+//Reset Current Path
+LET vCurrentPath = Left('$(vDocumentPath)',Index('$(vDocumentPath)','\',-1)-1);
+NEXT vFolder
+
+DROP TABLE Folders;
+
+END SUB
+
+CALL CreateContainerVariables;
+CALL CreateContainerVariables('Common');
