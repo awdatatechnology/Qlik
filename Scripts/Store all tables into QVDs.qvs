@@ -1,8 +1,0 @@
-//================================================================================ 
-// Store transformed tables to QVDS  
-//================================================================================ 
- 
-FOR vCount = 0 to NoOfTables()-1  
-     LET vTableName = TableName($(vCount));  
-     STORE [$(vTableName)] INTO [Folder\$(vTableName).qvd] (qvd);  
-NEXT vCount
