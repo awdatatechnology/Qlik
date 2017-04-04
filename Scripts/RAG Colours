@@ -1,3 +1,0 @@
-LET vRAG_Red = RGB(239,32,40);
-LET vRAG_Amber = RGB(252,182,22);
-LET vRAG_Green = RGB(13,177,78);
