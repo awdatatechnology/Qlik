@@ -1,5 +1,0 @@
-IF ISNULL(QvdCreateTime('FolderName\FileName.QVD')) THEN
-//Do Something
-ELSE 
-//DO Something Else
-END IF
