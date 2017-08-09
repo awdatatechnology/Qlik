@@ -1,0 +1,29 @@
+// -----------------------------------------------------------------------------
+// Subroutine: StoreTables
+// Stores all loaded tables to QVDs in the specified path
+// 
+// Examples:
+// Call StoreTables('$(vG.QVDTransformedPath)');
+// -----------------------------------------------------------------------------
+TRACE ##### Loading Subroutine: StoreTables;
+
+SUB StoreTables(Path)
+	
+	// check path is vaild
+	Call FileExist('$(Path)');
+	IF vFileExist = 'false' THEN;
+		TRACE '### Did not find path [$(Path)] Check path exists and try again.'; LET vFileExist=; SLEEP 5000;
+	ELSEIF vFileExist = 'true' THEN; 
+
+		FOR vCount = 0 to NoOfTables()-1  
+			LET vTableName = TableName($(vCount));
+			TRACE '### Storing table [$(vTableName)] to path [$(Path)]';
+			STORE [$(vTableName)] INTO [$(Path)\$(vTableName).qvd] (qvd);  
+		NEXT vCount
+	ENDIF
+
+	// clean up
+	LET vCount=;
+	LET vTableName =;
+	LET vFileExist=;
+END SUB

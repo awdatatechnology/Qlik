@@ -1,0 +1,37 @@
+// -----------------------------------------------------------------------------
+// Subroutine: DropNullFields
+// Drops fields that are Null from the data model
+// 
+// Examples:
+// CALL DropNullFields;
+// -----------------------------------------------------------------------------
+TRACE ##### Loading Subroutine: DropNullFields;
+
+SUB DropNullFields
+	TRACE '### Dropping Null Fields';
+
+	FOR a = 0 TO NoOfTables() - 1  
+		LET vTable = TableName($(a));  
+		LET d = 0;  
+		FOR i = 1 TO NoOfFields('$(vTable)')  
+			LET j = i - d;  
+			LET vField = FieldName($(j), '$(vTable)');  
+			LET vFieldValueCount = Alt(FieldValueCount('$(vField)'), 0);  
+			IF (vFieldValueCount <= 0 ) THEN  
+				DROP FIELD [$(vField)] FROM $(vTable);  
+				TRACE '### DROP FIELD [$(vField)] FROM $(vTable)';  
+				LET d = d + 1; // dropping fields impacts the internal field no.  
+			END IF  
+		NEXT i  
+	NEXT a 
+
+	// clean up
+	SET a =;
+	SET vTable =;
+	SET d =;
+	SET i =;
+	SET j =;
+	LET vField =;
+	SET vFieldValueCount =;
+
+END SUB

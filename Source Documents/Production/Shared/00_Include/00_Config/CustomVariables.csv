@@ -1,0 +1,3 @@
+VariableName,VariableValue,Comments
+vExp1,sum(1),test
+vExp2,"sum({<field1={""*""}>} 1)",test

@@ -1,0 +1,43 @@
+// -----------------------------------------------------------------------------
+// Load all scripts
+// Inlcude this script in all apps so they can use subroutine scripts
+// -----------------------------------------------------------------------------
+TRACE ############### Starting Load Script ###############;
+
+
+// dynamically find the folder path as each app could be in a different folder
+LET vFindFolder = 'Shared\00_Include';
+
+// loop folder levels untill the folder exists by using filesize()
+FOR vCount = 1 TO 10 // only loop 10 folder levels, if folder structure has more increase number
+	// relative path starts '..\' and increase every level
+	LET vIncludePath = repeat('..\',$(vCount)) & '$(vFindFolder)';
+	// exit loop when relative path exists
+	EXIT FOR When IsNull(FileSize('$(vIncludePath)')) = 0 ; 			
+NEXT vCount
+LET vCount =;
+
+IF IsNull(FileSize('$(vIncludePath)')) <> 0 THEN; 
+TRACE ### Did not find path to $(vFindFolder), please check path exists. Exiting Script ###; 
+LET vIncludePath =; 
+LET vFindFolder=;
+SLEEP 5000 ; EXIT SCRIPT; 
+ENDIF;
+
+// Subroutines, add new include statement for each script
+$(Include=$(vIncludePath)\03_Scripts\SUB ContainerVariables.qvs);
+$(Include=$(vIncludePath)\03_Scripts\SUB CreateCalendar.qvs);
+$(Include=$(vIncludePath)\03_Scripts\SUB DropNullFields.qvs);
+$(Include=$(vIncludePath)\03_Scripts\SUB FileExist.qvs);
+$(Include=$(vIncludePath)\03_Scripts\SUB LoadVariablesCSV.qvs);
+$(Include=$(vIncludePath)\03_Scripts\SUB LoadVariablesScript.qvs);
+$(Include=$(vIncludePath)\03_Scripts\SUB StoreTables.qvs);
+$(Include=$(vIncludePath)\03_Scripts\SUB TableData.qvs);
+
+// clean up
+LET vIncludePath =;
+LET vFindFolder=;
+
+TRACE ############### Load Script Complete ###############
+
+;

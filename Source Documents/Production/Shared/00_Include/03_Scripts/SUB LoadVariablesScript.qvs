@@ -1,0 +1,26 @@
+// -----------------------------------------------------------------------------
+// Subroutine: LoadVariablesScript
+// include this script in your QVW to load custom variables
+// 
+// Examples:
+// CALL LoadVariablesScript('$(vG.SharedConfigPath)\VAR Default.qvs');
+// CALL LoadVariablesScript('$(vG.ConfigPath)\VAR Default.qvs');
+// -----------------------------------------------------------------------------
+TRACE ##### Loading Subroutine: LoadVariablesScript;
+
+SUB LoadVariablesScript(ScriptPath)
+
+	Call FileExist('$(ScriptPath)');
+	IF vFileExist = 'false' THEN;
+		TRACE '### Did not find $(ScriptPath) Exiting Script'; LET vFileExist=; SLEEP 5000 ; EXIT SCRIPT;
+	ELSEIF vFileExist = 'true' THEN; 
+		TRACE '### Loading $(ScriptPath)';
+	
+		$(Include=$(ScriptPath));
+		
+	ENDIF
+	
+	// clean up
+	LET vFileExist=;
+
+END SUB;

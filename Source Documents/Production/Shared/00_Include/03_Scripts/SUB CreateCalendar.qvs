@@ -1,0 +1,53 @@
+// -----------------------------------------------------------------------------
+// Subroutine: CreateCalendar
+// Creates a generic calendar table
+// 
+// Examples:
+// Call CreateCalendar('%Date', 'Master Calendar', 'Master ');
+// -----------------------------------------------------------------------------
+TRACE ##### Loading Subroutine: CreateCalendar;
+
+SUB CreateCalendar(Field, TableName, FieldPrefix)
+
+	TRACE '### Creating a Calendar based on field [$(Field)], with table name [$(TableName)], fields prefixed with [$(FieldPrefix)]';
+
+	LET vField = Field;
+	LET vCalendar = TableName;
+	LET vPrefix = FieldPrefix;
+
+	// system variables with ISO week date system (unless specified do not change)
+	SET FirstWeekDay=0; 
+	SET BrokenWeeks=0; 
+	SET ReferenceDay=4; 
+	SET FirstMonthOfYear=1; 
+	
+	[$(vCalendar)]:
+	LOAD
+		[$(vField)],
+		Date([$(vField)]) 													as [$(vPrefix)Date],
+		Month([$(vField)]) 													as [$(vPrefix)Month],
+		Dual(Left(Month([$(vField)]),1),Month([$(vField)])) 				as [$(vPrefix)MonthShort],
+		Num(Month([$(vField)]),'00') 										as [$(vPrefix)MonthNo],
+		MonthName([$(vField)]) 												as [$(vPrefix)MonthName],
+		Year([$(vField)]) 													as [$(vPrefix)Year],
+		Num(Week([$(vField)]),'00') 										as [$(vPrefix)Week],
+		Day([$(vField)]) 													as [$(vPrefix)Day],
+		WeekDay([$(vField)]) 												as [$(vPrefix)WeekDay],
+		Dual('Q' & Ceil(Month([$(vField)])/3),Ceil(Month([$(vField)])/3)) 	as [$(vPrefix)Quarter],
+		DayNumberOfYear([$(vField)]) 										as [$(vPrefix)DayofYear]
+	;
+	LOAD
+		Date(MinDate + IterNo()) as [$(vField)]
+	WHILE MinDate + IterNo() <= MaxDate
+	;
+	LOAD
+		Min(FieldValue('$(vField)',RecNo()))-1	as MinDate,
+		Max(FieldValue('$(vField)',RecNo()))	as MaxDate
+	AutoGenerate FieldValueCount('$(vField)');
+	
+	// clean up
+	LET vField =;
+	LET vCalendar =;
+	LET vPrefix =;
+
+END SUB

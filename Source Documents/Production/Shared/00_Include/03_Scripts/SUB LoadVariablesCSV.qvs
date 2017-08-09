@@ -1,0 +1,44 @@
+// -----------------------------------------------------------------------------
+// Subroutine: LoadVariablesCSV
+// include this script in your QVW to load custom variables
+// 
+// Examples:
+// CALL LoadVariablesCSV('$(vG.SharedConfigPath)\CustomVariables.csv');
+// CALL LoadVariablesCSV('$(vG.ConfigPath)\CustomVariables.csv');
+// -----------------------------------------------------------------------------
+TRACE ##### Loading Subroutine: LoadVariablesCSV;
+
+SUB LoadVariablesCSV(CSVPath)
+
+	Call FileExist('$(CSVPath)');
+	IF vFileExist = 'false' THEN;
+		TRACE '### Did not find $(CSVPath) Exiting Script'; LET vFileExist=; SLEEP 5000 ; EXIT SCRIPT;
+	ELSEIF vFileExist = 'true' THEN; 
+		TRACE '### Loading $(CSVPath)';
+	
+		CustomVariables:
+		LOAD 
+			VariableName, 
+			VariableValue, 
+			Comments
+		FROM
+		[$(CSVPath)]
+		(txt, codepage is 1252, embedded labels, delimiter is ',', msq);
+		
+		FOR i = 0 to NoOfRows('CustomVariables')-1
+		     LET vVariableName = Peek('VariableName',$(i),'CustomVariables');
+		     LET $(vVariableName) = Peek('VariableValue',$(i),'CustomVariables');      
+		NEXT
+		
+		DROP Tables CustomVariables;
+		
+		// clean up
+		LET i=;
+		LET vVariableName=;
+	
+	ENDIF
+	
+	// clean up
+	LET vFileExist=;
+
+END SUB;

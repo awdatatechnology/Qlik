@@ -1,0 +1,1 @@
+common configuration, scripts, variables, constants, images, icons

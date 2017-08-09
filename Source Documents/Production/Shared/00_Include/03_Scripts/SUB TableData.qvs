@@ -1,0 +1,21 @@
+// -----------------------------------------------------------------------------
+// Subroutine: TableData
+// Useful in QVD Generators to give some additonal info about the data loaded
+// 
+// Examples:
+// Call TableData ('TableName');
+// -----------------------------------------------------------------------------
+TRACE ##### Loading Subroutine: TableData;
+
+SUB TableData (vTableName)
+
+	TRACE ##### Loading TableData for $(vTableName);
+	TableData:
+	LOAD
+		'$(vTableName)' as TableName,
+		NoOfFields('$(vTableName)') as NoOfFields,
+		NoOfRows('$(vTableName)') as NoOfRows,
+		Time(Timestamp('$(vEndReloadTime)') - Timestamp('$(vStartReloadTime)'),'hh:mm:ss') as ReloadTime
+	AutoGenerate(1);
+
+END SUB

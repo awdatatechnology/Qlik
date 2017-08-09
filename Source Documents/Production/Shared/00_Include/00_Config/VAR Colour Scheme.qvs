@@ -1,0 +1,89 @@
+// -----------------------------------------------------------------------------
+// Colour Scheme
+// depending on how a variable is created a dollar expansions may be required
+// * using SET always requires dollar expansions in the front end
+//		eg "SET vColourRed1 = RGB(237,25,55);" front end: $(vColourRed1)
+// * using LET referencing an RGB code does not
+//		eg "LET vColourRed1 = RGB(237,25,55);" front end: vColourRed1
+// * using LET referencing another variable requires dollar expansions
+//		eg "LET vChartColour1 = vColourRed1;" front end: $(vChartColour1)
+//
+// if in doubt always use dollar expansion
+// -----------------------------------------------------------------------------
+
+// custom colour scheme add/change/remove variables as you wish
+// only use these to populate gobal variables
+SET vColourBlue1 = RGB(0,114,198);
+SET vColourRed1 = RGB(237,25,55);
+SET vColourRed2 = RGB(225,10,0);
+SET vColourRed3 = RGB(196,15,41);
+SET vColourPurple1 = RGB(127,48,141);
+SET vColourPurple2 = RGB(77,0,85);
+
+SET vColourBlack = RGB(0,0,0);
+SET vColourDarkGrey1 = RGB(38,38,38);
+SET vColourDarkGrey2 = RGB(70,70,70);
+SET vColourWhite = RGB(255,255,255);
+SET vColourGrey1 = RGB(230,230,230);
+SET vColourGrey2 = RGB(185,185,185);
+
+// Global variables are prefixed 'vG.' this helps distinguish them from local variables
+
+// colour scheme used in QlikView as Variables. 
+LET vG.ChartColour1 = vColourRed1;
+LET vG.ChartColour2 = vColourPurple1;
+LET vG.ChartColour3 = vColourBlue1;
+SET vG.ChartColour4 = RGB(115,115,115);
+SET vG.ChartColour5 = RGB(102,204,102);
+SET vG.ChartColour6 = RGB(10,110,180);
+SET vG.ChartColour7 = RGB(210,210,210);
+SET vG.ChartColour8 = RGB(153,51,153);
+SET vG.ChartColour9 = RGB(102,204,204);
+SET vG.ChartColour10 = RGB(108,168,210);
+
+// traffic light colours
+SET vG.RAGRed = RGB(239,32,40);
+SET vG.RAGAmber = RGB(252,182,22);
+SET vG.RAGGreen = RGB(13,177,78);
+
+// use below to define layout colours in your app instead of a colour name, 
+// this will make changes easier as they have generic names
+
+LET vG.SheetBgColour1 = vColourWhite;
+LET vG.CaptionBgColour1 = vColourGrey1;
+LET vG.CaptionTxtColour1 = vColourDarkGrey1;
+LET vG.ChartBorderColour1 = vColourGrey2;
+LET vG.TxtColour1 = vColourDarkGrey1;
+
+LET vG.NavBgColour1 = vColourBlue1;
+LET vG.NavBgColour2 = vColourGrey1;
+LET vG.NavTxtColour1 = vColourWhite;
+LET vG.NavTxtColour2 = vColourDarkGrey1;
+
+LET vG.ButtonBgColour1 = vColourPurple1;
+LET vG.ButtonBgColour2 = vColourGrey1;
+LET vG.ButtonTxtColour1 = vColourWhite;
+LET vG.ButtonTxtColour2 = vColourDarkGrey1;
+
+SET vG.LayoutColour5 = ;
+SET vG.LayoutColour6 = ;
+SET vG.LayoutColour7 = ;
+SET vG.LayoutColour8 = ;
+SET vG.LayoutColour9 = ;
+SET vG.LayoutColour10 =;
+
+
+// clean up
+SET vColourRed1 = ;
+SET vColourRed2 = ;
+SET vColourRed3 = ;
+SET vColourBlue1 = ;
+SET vColourPurple1 = ;
+SET vColourPurple2 = ;
+SET vColourWhite = ;
+SET vColourBlack = ;
+SET vColourGrey1 = ;
+SET vColourGrey2 =;
+SET vColourDarkGrey1 = ;
+SET vColourDarkGrey2 =;
+

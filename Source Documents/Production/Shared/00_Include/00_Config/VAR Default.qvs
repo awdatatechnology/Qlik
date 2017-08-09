@@ -1,0 +1,18 @@
+﻿// -----------------------------------------------------------------------------
+// Default Variables Script
+// -----------------------------------------------------------------------------
+
+// Back end
+SET HidePrefix = '%';
+
+// To hide fields other than ones prefixed with above use:
+// TAG Fields _FieldName, %_FieldName, $_FieldName WITH $hidden;
+
+// Front end 
+SET vShow = '';
+SET vCurrentSelections = ' Current Selections: ' & if(vShow='CurrentSelections', ' Click Here To Hide', if(isnull(GetCurrentSelections()), ' Nothing selected', GetCurrentSelections(' | ', ': ', ','))); 
+SET vSelectDimension = 'Dim1'; 
+
+//SET vSelectCalculation = 'Absolute'; //Absolute or Relative
+//SET vSelectChartType = 'Bar';        //Bar, Line, Combo, Table, etc... 
+//SET vSelectCalendar = 'Year';        //Any Calendar Dimension

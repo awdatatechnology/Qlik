@@ -1,0 +1,25 @@
+// -----------------------------------------------------------------------------
+// Subroutine: FileExist
+// returns variable vFileExist with either 'true' or 'false'
+// 
+// Examples:
+// Call FileExist('$(vQVDPath)');
+// IF vFileExist = 'false' THEN; TRACE '### Did not find $(vQVDPath), Exiting Script'; LET vFileExist =; SLEEP 5000 ; EXIT SCRIPT; ENDIF;
+// -----------------------------------------------------------------------------
+TRACE ##### Loading Subroutine: FileExist;
+
+SUB FileExist (vFilePath)
+
+	// Remove backslash if vFilePath ends with one
+	DO WHILE Right( '$(vFilePath)' , 1 ) ='\'
+		LET vFilePath = Left('$(vFilePath)', Len('$(vFilePath)')-1);
+		EXIT DO Unless Right( '$(vFilePath)' , 1 ) ='\';
+	LOOP
+	
+	IF IsNull(FileSize('$(vFilePath)')) = -1  THEN
+		SET vFileExist='false';
+   	ELSE   
+		SET vFileExist='true';
+	ENDIF
+	
+END SUB;

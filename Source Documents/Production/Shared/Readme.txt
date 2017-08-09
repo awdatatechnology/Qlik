@@ -1,0 +1,1 @@
+Common folder structure identical in each department
