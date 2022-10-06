@@ -1,0 +1,96 @@
+///$tab Main
+SET ThousandSep=',';
+SET DecimalSep='.';
+SET MoneyThousandSep=',';
+SET MoneyDecimalSep='.';
+SET MoneyFormat='Â£#,##0.00;-Â£#,##0.00';
+SET TimeFormat='hh:mm:ss';
+SET DateFormat='DD/MM/YYYY';
+SET TimestampFormat='DD/MM/YYYY hh:mm:ss[.fff]';
+SET FirstWeekDay=0;
+SET BrokenWeeks=0;
+SET ReferenceDay=4;
+SET FirstMonthOfYear=1;
+SET CollationLocale='en-GB';
+SET CreateSearchIndexOnReload=1;
+SET MonthNames='Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec';
+SET LongMonthNames='January;February;March;April;May;June;July;August;September;October;November;December';
+SET DayNames='Mon;Tue;Wed;Thu;Fri;Sat;Sun';
+SET LongDayNames='Monday;Tuesday;Wednesday;Thursday;Friday;Saturday;Sunday';
+SET NumericalAbbreviation='3:k;6:M;9:G;12:T;15:P;18:E;21:Z;24:Y;-3:m;-6:Î¼;-9:n;-12:p;-15:f;-18:a;-21:z;-24:y';
+
+///$tab Config
+//================================================================================ 
+// QVD Scripts 
+//================================================================================ 
+ 
+// define directory and store path 
+SET vQVDDir = 'lib://Root'; 
+
+///$tab Loop Files
+SUB FileDetails(File)
+
+FileContent:
+LOAD
+    "@1:n" as FileContent,
+    rowno() as FileRow,
+   '$(File)' as [File]
+FROM [$(File)]
+(fix, utf8, no labels);
+
+FileDetails:
+FIRST 1 LOAD
+   '$(File)' as [File], 
+   FileName() as [FileName], 
+   FileBaseName() as [FileBaseName], 
+   FilePath() as [FilePath],
+   FileDir() as [FileDir],
+   FileExtension() as [FileExtension], 
+   FileSize() as [FileSize], 
+   FileTime() as [FileTime]
+FROM [$(File)]
+(fix, utf8, no labels);
+
+Dir:
+LOAD
+'$(File)' as [File],
+subfield('$(File)','/',3) as [FileSubField1],
+subfield('$(File)','/',4) as [FileSubField2],
+subfield('$(File)','/',5) as [FileSubField3],
+subfield('$(File)','/',6) as [FileSubField4],
+subfield('$(File)','/',7) as [FileSubField5],
+subfield('$(File)','/',8) as [FileSubField6],
+subfield('$(File)','/',9) as [FileSubField7]
+AutoGenerate (1);
+END SUB
+
+SUB DoDir (Root) 
+
+// need to cater to hidden initlink file seperately as wont load as part of the filelist
+IF FileSize('$(Root)/InitLink.qvs') >0 THEN
+	CALL FileDetails(Root &'/InitLink.qvs');
+ENDIF
+
+// create a table for folders even if they have no file in them
+Folder:
+LOAD
+   '$(Root)' as [FileDir],
+   replace(right('$(Root)',len('$(Root)')-6),'/','\') as [Folder]   
+AutoGenerate (1);
+
+For Each ext in 'qvs', 'txt', 'csv'
+  FOR EACH File in filelist (Root&'/*.'& ext) 
+  	CALL FileDetails(File);
+  NEXT File 
+next ext
+ 
+FOR EACH Dir in dirlist (Root&'\*' )
+    call DoDir (Dir) 
+NEXT Dir 
+
+END SUB 
+ 
+CALL DoDir ('$(vQVDDir)') 
+
+///$tab Exit
+Exit Script;
