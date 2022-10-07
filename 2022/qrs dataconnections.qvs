@@ -1,0 +1,80 @@
+// Server
+SET vServer = 'https://localhost';
+
+// arbitrary 16 character key  required for API calls
+SET vXrfkey = 0000000000000000;
+
+// connection
+LIB CONNECT TO 'monitor_apps_REST_app';
+
+// API Endpoint
+LET vURL = '$(vServer)/qrs/dataconnection/full';
+
+RestConnectorMasterTable:
+SQL SELECT 
+	"__KEY_root",
+    "connectionstring",
+    "logOn",
+    "schemaPath",
+    "type",
+    "password",
+    "createdDate",
+    "modifiedByUserName",
+    "modifiedDate",
+    "name",
+    "id",
+    "engineObjectId" ,
+    "username",
+    "architecture",
+	(SELECT 
+		"id" as "id_u1",
+		"userId",
+		"userDirectory",
+		"userDirectoryConnectorName",
+		"name" as "name_u1",
+		"privileges" as "privileges_u1",
+		"__FK_owner"
+	FROM "owner" FK "__FK_owner")
+FROM JSON (wrap on) "root" PK "__KEY_root"
+WITH CONNECTION (
+URL "$(vURL)"
+,QUERY "Xrfkey" "$(vXrfkey)"
+,HTTPHEADER "X-Qlik-Xrfkey" "$(vXrfkey)"
+);
+
+[dataconnection]:
+Load
+	"__KEY_root",
+    "connectionstring",
+    "logOn",
+    "schemaPath",
+    "type",
+    "password",
+    "createdDate",
+    "modifiedByUserName",
+    "modifiedDate",
+    "name",
+    "id",
+    "engineObjectId" ,
+    "username",
+    "architecture"
+RESIDENT RestConnectorMasterTable
+WHERE NOT IsNull([__KEY_root]);
+
+
+[owner]:
+LOAD
+    "id_u1",
+    "userId",
+    "userDirectory",
+    "userDirectoryConnectorName",
+    "name_u1",
+    "privileges_u1",
+    "__FK_owner" as "__KEY_root"
+RESIDENT RestConnectorMasterTable
+WHERE NOT IsNull([__FK_owner]);
+
+DROP TABLE RestConnectorMasterTable;
+
+
+
