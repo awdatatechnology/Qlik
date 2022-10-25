@@ -1,0 +1,130 @@
+///$tab Config
+ 
+DBTable:
+LOAD * INLINE [
+LIB, DB
+Electra, pinsys
+DWH, Datawarehouse
+];
+ 
+
+///$tab INFORMATION_SCHEMA
+FOR row = 0 to NoOfRows('DBTable')-1
+ 
+LET vLIB = Peek('LIB',$(row),'DBTable');
+LET vDBName = Peek('DB',$(row),'DBTable');
+ 
+TRACE '$(vLIB).$(vDBName) ';
+ 
+LIB CONNECT TO '$(vLIB)'; 
+ 
+ 
+[INFORMATION_SCHEMA.COLUMNS]: 
+LOAD  
+    TABLE_CATALOG &'|'& TABLE_SCHEMA &'|'& TABLE_NAME as %KEY_ID, 
+    TABLE_CATALOG,  
+    TABLE_SCHEMA,  
+    TABLE_NAME,  
+    COLUMN_NAME,  
+    ORDINAL_POSITION,  
+    COLUMN_DEFAULT,  
+    IS_NULLABLE,  
+    DATA_TYPE,  
+    CHARACTER_MAXIMUM_LENGTH,  
+    CHARACTER_OCTET_LENGTH,  
+    NUMERIC_PRECISION,  
+    NUMERIC_PRECISION_RADIX,  
+    NUMERIC_SCALE,  
+    DATETIME_PRECISION,  
+    CHARACTER_SET_CATALOG,  
+    CHARACTER_SET_SCHEMA,  
+    CHARACTER_SET_NAME,  
+    COLLATION_CATALOG,  
+    COLLATION_SCHEMA,  
+    COLLATION_NAME,  
+    DOMAIN_CATALOG,  
+    DOMAIN_SCHEMA,  
+    DOMAIN_NAME; 
+SELECT "TABLE_CATALOG", 
+"TABLE_SCHEMA", 
+"TABLE_NAME", 
+"COLUMN_NAME", 
+"ORDINAL_POSITION", 
+"COLUMN_DEFAULT", 
+"IS_NULLABLE", 
+"DATA_TYPE", 
+"CHARACTER_MAXIMUM_LENGTH", 
+"CHARACTER_OCTET_LENGTH", 
+"NUMERIC_PRECISION", 
+"NUMERIC_PRECISION_RADIX", 
+"NUMERIC_SCALE", 
+"DATETIME_PRECISION", 
+"CHARACTER_SET_CATALOG", 
+"CHARACTER_SET_SCHEMA", 
+"CHARACTER_SET_NAME", 
+"COLLATION_CATALOG", 
+"COLLATION_SCHEMA", 
+"COLLATION_NAME", 
+"DOMAIN_CATALOG", 
+"DOMAIN_SCHEMA", 
+"DOMAIN_NAME" 
+FROM $(vDBName)."INFORMATION_SCHEMA".COLUMNS; 
+ 
+// replace substring in script row, does not work with double quotes so <DQ> has to be done manually. 
+MAP_Replace: 
+MAPPING LOAD * INLINE [ 
+Replace, With 
+'<TAB>','    ' 
+'<BLANK ROW>','' 
+'<DOLLAR>','$' 
+'<DQ>','"' 
+]; 
+ 
+ 
+ 
+//create aggregated script rows 
+[ScriptAggr]: 
+LOAD  
+    *, 
+    MapSubString('MAP_Replace', [Temp Load Script]) as [Load Script] 
+; 
+LOAD 
+    *, 
+    '['& [TableName] &']: 
+LOAD 
+'& [QlikFieldNames] &' 
+; 
+SQL SELECT 
+'& [SQLFieldNames] &' 
+FROM <DQ>'& TableCatalog &'<DQ>.<DQ>'& TableSchema &'<DQ>.<DQ>'& TableName &'<DQ> 
+;' as [Temp Load Script] 
+; 
+LOAD 
+    %KEY_ID, 
+    [TABLE_CATALOG] as TableCatalog, 
+    [TABLE_SCHEMA] as TableSchema,    
+    [TABLE_NAME] as TableName, 
+    num(Count([COLUMN_NAME])) as [FieldCount], 
+    Concat(DISTINCT '<TAB>[' & [COLUMN_NAME] &']', ',
+', left([ORDINAL_POSITION],4)) as [QlikFieldNames], 
+    Concat(DISTINCT '<TAB><DQ>' & [COLUMN_NAME] &'<DQ>', ',
+', left([ORDINAL_POSITION],4)) as [SQLFieldNames]  
+RESIDENT [INFORMATION_SCHEMA.COLUMNS] 
+GROUP By 
+    %KEY_ID,
+    [TABLE_CATALOG], 
+    [TABLE_SCHEMA],    
+    [TABLE_NAME] 
+ORDER BY 
+[TABLE_NAME] ASC 
+; 
+ 
+NEXT
+ 
+LET vLIB = ;
+SET vDBName =;
+SET row =;
+ 
+DROP TABLE DBTable;
+ 
+EXIT SCRIPT;
