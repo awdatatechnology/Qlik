@@ -1,0 +1,134 @@
+///$tab CompareQVDs
+//=============================================================================
+// SUB CompareQVDs
+//   Compares two QVDs row-by-row on a business key and a full-row hash.
+//   Classifies differences as Added / Changed / Removed, and flags schema
+//   differences. Calls SendDiffAlert if anything differs.
+//
+//   pOldQVD   : path to baseline QVD     e.g. 'lib://Data/Orders_prev.qvd'
+//   pNewQVD   : path to comparison QVD   e.g. 'lib://Data/Orders.qvd'
+//   pKeys     : comma-separated key fields, e.g. 'OrderID,LineNo'
+//   pAlertTo  : recipient(s) for the alert email
+//
+// Output tables : DiffDetail (%Key, DiffType), DiffSummary (DiffType, DiffCount)
+// Output vars   : vDiffAdded, vDiffChanged, vDiffRemoved, vDiffTotal, vSchemaDiff
+//=============================================================================
+SUB CompareQVDs(pOldQVD, pNewQVD, pKeys, pAlertTo)
+
+    // ---- 1. Build field lists from QVD headers (no data read) -------------
+    LET _oldFieldCount = QvdNoOfFields('$(pOldQVD)');
+    LET _newFieldCount = QvdNoOfFields('$(pNewQVD)');
+    LET _oldFields = '';
+    LET _newFields = '';
+
+    FOR _i = 1 TO $(_oldFieldCount)
+        LET _oldFields = '$(_oldFields)' & If(_i > 1, ',') & '[' & QvdFieldName('$(pOldQVD)', $(_i)) & ']';
+    NEXT _i
+    FOR _i = 1 TO $(_newFieldCount)
+        LET _newFields = '$(_newFields)' & If(_i > 1, ',') & '[' & QvdFieldName('$(pNewQVD)', $(_i)) & ']';
+    NEXT _i
+
+    // Schema check (field names AND order must match for the row hash to be valid)
+    LET vSchemaDiff = If('$(_oldFields)' = '$(_newFields)', 0, 1);
+    IF $(vSchemaDiff) = 1 THEN
+        TRACE >>> Schema differs between QVDs. Old: $(_oldFields) | New: $(_newFields);
+        // Hash only the fields common to both so the compare can still run
+        LET _hashFields = '';
+        FOR _i = 1 TO $(_newFieldCount)
+            LET _f = '[' & QvdFieldName('$(pNewQVD)', $(_i)) & ']';
+            IF Index(',$(_oldFields),', ',$(_f),') > 0 THEN
+                LET _hashFields = '$(_hashFields)' & If(Len('$(_hashFields)') > 0, ',') & '$(_f)';
+            END IF
+        NEXT _i
+    ELSE
+        LET _hashFields = '$(_oldFields)';
+    END IF
+
+    LET _keyExpr = 'Hash128([' & Replace(Replace('$(pKeys)', ' ', ''), ',', '],[') & '])';
+    LET _rowExpr = 'Hash128($(_hashFields))';
+
+    // ---- 2. Hash both QVDs ------------------------------------------------
+    _OldHash:
+    LOAD $(_keyExpr) AS %OldKey, $(_rowExpr) AS %OldRow
+    FROM [$(pOldQVD)] (qvd);
+
+    _NewHash:
+    LOAD $(_keyExpr) AS %NewKey, $(_rowExpr) AS %NewRow
+    FROM [$(pNewQVD)] (qvd);
+
+    // ---- 3. Classify differences -----------------------------------------
+    // New rows whose full hash isn't in old: key missing => Added, else Changed
+    DiffDetail:
+    LOAD %NewKey AS %Key,
+         If(Exists(%OldKey, %NewKey), 'Changed', 'Added') AS DiffType
+    RESIDENT _NewHash
+    WHERE NOT Exists(%OldRow, %NewRow);
+
+    // Old keys that no longer exist in new => Removed
+    CONCATENATE (DiffDetail)
+    LOAD %OldKey AS %Key, 'Removed' AS DiffType
+    RESIDENT _OldHash
+    WHERE NOT Exists(%NewKey, %OldKey);
+
+    DROP TABLES _OldHash, _NewHash;
+
+    DiffSummary:
+    LOAD DiffType, Count(%Key) AS DiffCount
+    RESIDENT DiffDetail
+    GROUP BY DiffType;
+
+    // ---- 4. Pull counts into variables -----------------------------------
+    LET vDiffAdded = 0; LET vDiffChanged = 0; LET vDiffRemoved = 0;
+    FOR _r = 0 TO NoOfRows('DiffSummary') - 1
+        LET _t = Peek('DiffType',  $(_r), 'DiffSummary');
+        LET vDiff$(_t) = Peek('DiffCount', $(_r), 'DiffSummary');
+    NEXT _r
+    LET vDiffTotal = $(vDiffAdded) + $(vDiffChanged) + $(vDiffRemoved);
+
+    TRACE >>> Added: $(vDiffAdded) | Changed: $(vDiffChanged) | Removed: $(vDiffRemoved) | Schema diff: $(vSchemaDiff);
+
+    // ---- 5. Alert ---------------------------------------------------------
+    IF $(vDiffTotal) > 0 OR $(vSchemaDiff) = 1 THEN
+        LET _subject = 'QVD difference detected: ' & SubField('$(pNewQVD)', '/', -1);
+        LET _body    = 'Compared $(pOldQVD) vs $(pNewQVD). '
+                     & 'Added: $(vDiffAdded), Changed: $(vDiffChanged), Removed: $(vDiffRemoved). '
+                     & 'Schema changed: ' & If($(vSchemaDiff) = 1, 'Yes', 'No') & '. '
+                     & 'Reload time: ' & Timestamp(Now());
+        CALL SendDiffAlert('$(pAlertTo)', '$(_subject)', '$(_body)');
+    END IF
+
+    // Tidy up temp variables
+    LET _oldFieldCount = Null(); LET _newFieldCount = Null(); LET _oldFields = Null();
+    LET _newFields = Null(); LET _hashFields = Null(); LET _keyExpr = Null();
+    LET _rowExpr = Null(); LET _i = Null(); LET _r = Null(); LET _t = Null(); LET _f = Null();
+    LET _subject = Null(); LET _body = Null();
+END SUB
+
+
+//=============================================================================
+// SUB SendDiffAlert  — client-managed Qlik Sense via Qlik Web Connectors SMTP
+//   Requires a Web File data connection named 'QWC' (any URL; overridden below).
+//   Check param names against the URL your QWC SMTP connector generates.
+//=============================================================================
+SUB SendDiffAlert(pTo, pSubject, pBody)
+    // Minimal URL encoding
+    LET _s = Replace(Replace(Replace(Replace('$(pSubject)', '%', '%25'), ' ', '%20'), ':', '%3A'), '/', '%2F');
+    LET _b = Replace(Replace(Replace(Replace(Replace('$(pBody)', '%', '%25'), ' ', '%20'), ':', '%3A'), '/', '%2F'), ',', '%2C');
+
+    LET _url = 'http://localhost:5555/data?connectorID=SMTPConnector&table=SendEmail'
+             & '&SMTPServer=smtp.office365.com&Port=587&SSLmode=Explicit'
+             & '&to=$(pTo)&subject=$(_s)&message=$(_b)&html=False'
+             & '&fromName=Qlik%20Alerts&fromEmail=qlik.alerts@yourdomain.com'
+             & '&delayInSeconds=0&ignoreProxy=False&appID=&key=YOUR_QWC_KEY';
+
+    _EmailResult:
+    LOAD * FROM [lib://QWC] (qvx) WITH CONNECTION (URL "$(_url)");
+    DROP TABLE _EmailResult;
+
+    LET _s = Null(); LET _b = Null(); LET _url = Null();
+END SUB
+
+
+///$tab Main
+// Example call
+CALL CompareQVDs('lib://Data/Orders_prev.qvd', 'lib://Data/Orders.qvd', 'OrderID,LineNo', 'adam@yourdomain.com');
