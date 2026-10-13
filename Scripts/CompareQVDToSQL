@@ -1,0 +1,125 @@
+///$tab CompareQVDToSQL
+//=============================================================================
+// SUB CompareQVDToSQL
+//   Compares a QVD against the result of a SQL statement on a business key
+//   and a full-row hash. Classifies differences as Added / Changed / Removed
+//   (from the SQL side's point of view: QVD = baseline, SQL = current source).
+//
+//   pQVD        : path to QVD             e.g. 'lib://Data/Orders.qvd'
+//   pConnection : data connection name    e.g. 'SQLServer_DWH' or 'Space:Snowflake'
+//   pSqlVar     : NAME of a variable holding the SQL (avoids quote/comma issues
+//                 when passing SQL as a CALL parameter), e.g. 'vCompareSQL'
+//   pKeys       : comma-separated key fields, e.g. 'OrderID,LineNo'
+//   pAlertTo    : recipient(s) for the alert email
+//
+// Output tables : DiffDetail (%Key, DiffType), DiffSummary (DiffType, DiffCount)
+// Output vars   : vDiffAdded, vDiffChanged, vDiffRemoved, vDiffTotal, vSchemaDiff
+// Requires      : SUB SendDiffAlert (from CompareQVDs.qvs)
+//=============================================================================
+SUB CompareQVDToSQL(pQVD, pConnection, pSqlVar, pKeys, pAlertTo)
+
+    // ---- 1. Run the SQL ---------------------------------------------------
+    LIB CONNECT TO '$(pConnection)';
+
+    _SqlData:
+    SQL $($(pSqlVar));
+
+    // ---- 2. Build field lists (QVD header + SQL result table) -------------
+    LET _qvdFieldCount = QvdNoOfFields('$(pQVD)');
+    LET _sqlFieldCount = NoOfFields('_SqlData');
+    LET _qvdFields = '';
+    LET _sqlFields = '';
+
+    FOR _i = 1 TO $(_sqlFieldCount)
+        LET _sqlFields = '$(_sqlFields)' & ',[' & FieldName($(_i), '_SqlData') & '],';
+    NEXT _i
+
+    // Hash list = QVD fields that also exist in the SQL result, in QVD order.
+    // Using an explicit list means column ORDER differences don't matter.
+    LET _hashFields = '';
+    LET _common = 0;
+    FOR _i = 1 TO $(_qvdFieldCount)
+        LET _f = '[' & QvdFieldName('$(pQVD)', $(_i)) & ']';
+        LET _qvdFields = '$(_qvdFields)' & If(_i > 1, ',') & '$(_f)';
+        IF Index('$(_sqlFields)', ',$(_f),') > 0 THEN
+            LET _hashFields = '$(_hashFields)' & If(Len('$(_hashFields)') > 0, ',') & '$(_f)';
+            LET _common = $(_common) + 1;
+        END IF
+    NEXT _i
+
+    // Schema differs if field counts differ or not every QVD field is in SQL
+    LET vSchemaDiff = If($(_common) = $(_qvdFieldCount) AND $(_common) = $(_sqlFieldCount), 0, 1);
+    IF $(vSchemaDiff) = 1 THEN
+        TRACE >>> Schema differs. QVD fields: $(_qvdFields) | SQL field count: $(_sqlFieldCount) | Common: $(_common);
+    END IF
+
+    LET _keyExpr = 'Hash128([' & Replace(Replace('$(pKeys)', ' ', ''), ',', '],[') & '])';
+    LET _rowExpr = 'Hash128($(_hashFields))';
+
+    // ---- 3. Hash both sides -----------------------------------------------
+    _OldHash:
+    LOAD $(_keyExpr) AS %OldKey, $(_rowExpr) AS %OldRow
+    FROM [$(pQVD)] (qvd);
+
+    _NewHash:
+    NoConcatenate
+    LOAD $(_keyExpr) AS %NewKey, $(_rowExpr) AS %NewRow
+    RESIDENT _SqlData;
+
+    DROP TABLE _SqlData;
+
+    // ---- 4. Classify differences -----------------------------------------
+    DiffDetail:
+    LOAD %NewKey AS %Key,
+         If(Exists(%OldKey, %NewKey), 'Changed', 'Added') AS DiffType
+    RESIDENT _NewHash
+    WHERE NOT Exists(%OldRow, %NewRow);
+
+    CONCATENATE (DiffDetail)
+    LOAD %OldKey AS %Key, 'Removed' AS DiffType
+    RESIDENT _OldHash
+    WHERE NOT Exists(%NewKey, %OldKey);
+
+    DROP TABLES _OldHash, _NewHash;
+
+    DiffSummary:
+    LOAD DiffType, Count(%Key) AS DiffCount
+    RESIDENT DiffDetail
+    GROUP BY DiffType;
+
+    // ---- 5. Counts into variables ----------------------------------------
+    LET vDiffAdded = 0; LET vDiffChanged = 0; LET vDiffRemoved = 0;
+    FOR _r = 0 TO NoOfRows('DiffSummary') - 1
+        LET _t = Peek('DiffType', $(_r), 'DiffSummary');
+        LET vDiff$(_t) = Peek('DiffCount', $(_r), 'DiffSummary');
+    NEXT _r
+    LET vDiffTotal = $(vDiffAdded) + $(vDiffChanged) + $(vDiffRemoved);
+
+    TRACE >>> QVD vs SQL — Added: $(vDiffAdded) | Changed: $(vDiffChanged) | Removed: $(vDiffRemoved) | Schema diff: $(vSchemaDiff);
+
+    // ---- 6. Alert ---------------------------------------------------------
+    IF $(vDiffTotal) > 0 OR $(vSchemaDiff) = 1 THEN
+        LET _subject = 'QVD vs SQL difference: ' & SubField('$(pQVD)', '/', -1);
+        LET _body    = 'Compared $(pQVD) vs SQL on $(pConnection). '
+                     & 'Added: $(vDiffAdded), Changed: $(vDiffChanged), Removed: $(vDiffRemoved). '
+                     & 'Schema changed: ' & If($(vSchemaDiff) = 1, 'Yes', 'No') & '. '
+                     & 'Reload time: ' & Timestamp(Now());
+        CALL SendDiffAlert('$(pAlertTo)', '$(_subject)', '$(_body)');
+    END IF
+
+    // Tidy up
+    LET _qvdFieldCount = Null(); LET _sqlFieldCount = Null(); LET _qvdFields = Null();
+    LET _sqlFields = Null(); LET _hashFields = Null(); LET _common = Null();
+    LET _keyExpr = Null(); LET _rowExpr = Null(); LET _i = Null(); LET _r = Null();
+    LET _t = Null(); LET _f = Null(); LET _subject = Null(); LET _body = Null();
+END SUB
+
+
+///$tab Main
+// Example call — put the SQL in a variable, pass the variable NAME.
+// Alias columns so names (and case) match the QVD exactly.
+SET vCompareSQL = SELECT OrderID, LineNo, CustomerID, Qty, Amount, OrderDate
+                  FROM dbo.Orders
+                  WHERE OrderDate >= '2026-01-01';
+
+CALL CompareQVDToSQL('lib://Data/Orders.qvd', 'SQLServer_DWH', 'vCompareSQL', 'OrderID,LineNo', 'adam@yourdomain.com');
